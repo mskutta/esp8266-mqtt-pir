@@ -30,11 +30,22 @@ WiFiClient wifiClient;
 PubSubClient client(wifiClient);
 const char* broker = "10.81.95.165";
 
-/* Pin States */
+/* Pin State */
 #define PIN_COUNT 4
 int pins[PIN_COUNT] = {D1, D2, D5, D6};
-int currentState;
-int lastState[PIN_COUNT] = {HIGH, HIGH, HIGH, HIGH};
+int pinState;
+int lastPinState[PIN_COUNT] = {HIGH, HIGH, HIGH, HIGH};
+unsigned long pinTimeout[PIN_COUNT] = {0, 0, 0, 0};
+
+/* Group State */
+#define GROUP_COUNT 2
+int groupState;
+int lastGroupState[GROUP_COUNT] = {HIGH, HIGH};
+
+/* LED State */
+bool stateChanged = false;
+int ledState = HIGH;
+unsigned long ledTimeout = 0;
 
 void configModeCallback (WiFiManager *myWiFiManager) {
   Serial.println(F("Config Mode"));
@@ -137,14 +148,18 @@ void loop()
   }
   client.loop();
 
-  // loop through pins
+  unsigned long currentMillis = millis();
+  
+  // Pins
+  stateChanged = false;
   for(int i = 0; i < PIN_COUNT; i++) {
-    currentState = digitalRead(pins[i]);
-    if (currentState != lastState[i]) {
-      lastState[i] = currentState;
-      sprintf(topic, "%s/%d", ESP_NAME, i);
+    pinState = digitalRead(pins[i]);
+    if (pinState != lastPinState[i]) {
+      lastPinState[i] = pinState;
+      stateChanged = true;
+      sprintf(topic, "%s/p%d", ESP_NAME, i + 1);
       Serial.print(topic);
-      if (currentState == HIGH) {
+      if (pinState == HIGH) {
         client.publish(topic, "1");
         Serial.println(F(" HIGH"));
       } else {
@@ -152,5 +167,37 @@ void loop()
         Serial.println(F(" LOW"));
       }
     }
+  }
+
+  // Groups
+  for(int i = 0; i < GROUP_COUNT; i++) {
+    groupState = lastPinState[i * 2] | lastPinState[(i * 2) + 1];
+    if (groupState != lastGroupState[i]) {
+      lastGroupState[i] = groupState;
+      sprintf(topic, "%s/g%d", ESP_NAME, i + 1);
+      Serial.print(topic);
+      if (groupState == HIGH) {
+        client.publish(topic, "1");
+        Serial.println(F(" HIGH"));
+      } else {
+        client.publish(topic, "0");
+        Serial.println(F(" LOW"));
+      }
+    }
+  }
+
+  // LED
+  if (stateChanged == true)
+  {
+    ledTimeout = currentMillis + 10;
+    if (ledState == HIGH) {
+      digitalWrite(LED_BUILTIN, LOW);
+      ledState = LOW;
+    }
+  } 
+  else if (ledTimeout < currentMillis && ledState == LOW) 
+  {
+    digitalWrite(LED_BUILTIN, HIGH);
+    ledState = HIGH;
   }
 }
