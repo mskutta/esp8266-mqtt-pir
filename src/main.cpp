@@ -154,6 +154,12 @@ void loop()
   stateChanged = false;
   for(int i = 0; i < PIN_COUNT; i++) {
     pinState = digitalRead(pins[i]);
+
+    // Noise filter
+    if (pinState == HIGH) { pinTimeout[i] = currentMillis + 5000; }
+    else if (pinTimeout[i] > currentMillis) { pinState = HIGH; }
+
+    // Toggle pin state
     if (pinState != lastPinState[i]) {
       lastPinState[i] = pinState;
       stateChanged = true;
