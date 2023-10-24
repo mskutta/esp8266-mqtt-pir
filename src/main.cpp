@@ -36,6 +36,7 @@ int pins[PIN_COUNT] = {D1, D2, D5, D6};
 int pinState;
 int lastPinState[PIN_COUNT] = {HIGH, HIGH, HIGH, HIGH};
 unsigned long pinTimeout[PIN_COUNT] = {0, 0, 0, 0};
+unsigned long activeTimeout[PIN_COUNT] = {0, 0, 0, 0};
 
 /* Group State */
 #define GROUP_COUNT 2
@@ -173,24 +174,34 @@ void loop()
         Serial.println(F(" LOW"));
       }
     }
+
+    // Active state
+    if (pinState == HIGH && activeTimeout[i] < currentMillis) {
+      sprintf(topic, "%s/a%d", ESP_NAME, i + 1);
+      Serial.print(topic);
+      client.publish(topic, "1");
+      Serial.println(F(" HIGH"));
+      activeTimeout[i] = currentMillis + 1000;
+    }
+
   }
 
-  // Groups
-  for(int i = 0; i < GROUP_COUNT; i++) {
-    groupState = lastPinState[i * 2] | lastPinState[(i * 2) + 1];
-    if (groupState != lastGroupState[i]) {
-      lastGroupState[i] = groupState;
-      sprintf(topic, "%s/g%d", ESP_NAME, i + 1);
-      Serial.print(topic);
-      if (groupState == HIGH) {
-        client.publish(topic, "1");
-        Serial.println(F(" HIGH"));
-      } else {
-        client.publish(topic, "0");
-        Serial.println(F(" LOW"));
-      }
-    }
-  }
+  // // Groups
+  // for(int i = 0; i < GROUP_COUNT; i++) {
+  //   groupState = lastPinState[i * 2] | lastPinState[(i * 2) + 1];
+  //   if (groupState != lastGroupState[i]) {
+  //     lastGroupState[i] = groupState;
+  //     sprintf(topic, "%s/g%d", ESP_NAME, i + 1);
+  //     Serial.print(topic);
+  //     if (groupState == HIGH) {
+  //       client.publish(topic, "1");
+  //       Serial.println(F(" HIGH"));
+  //     } else {
+  //       client.publish(topic, "0");
+  //       Serial.println(F(" LOW"));
+  //     }
+  //   }
+  // }
 
   // LED
   if (stateChanged == true)
